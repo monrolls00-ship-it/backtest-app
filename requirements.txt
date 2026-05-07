@@ -1,0 +1,9 @@
+streamlit
+ccxt
+pandas
+pandas-ta
+plotly
+numpy
+yfinance
+gspread
+google-auth
