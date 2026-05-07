@@ -1,0 +1,5 @@
+[server]
+headless = true
+
+[runtime]
+pythonVersion = "3.11"
