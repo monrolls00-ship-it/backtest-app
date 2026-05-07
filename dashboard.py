@@ -1,7 +1,7 @@
 import streamlit as st
 import ccxt
 import pandas as pd
-import pandas_ta as ta
+import ta
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
@@ -165,12 +165,12 @@ def fetch_ohlcv(asset_type, symbol, timeframe, years=8):
 # ─── Signals ─────────────────────────────────────────────────────────────────
 def compute_signals(df, fast=12, slow=26, signal=9, use_ma_filter=False, ma_period=128):
     df = df.copy()
-    macd = ta.macd(df["close"], fast=fast, slow=slow, signal=signal)
-    df["macd"]        = macd[f"MACD_{fast}_{slow}_{signal}"]
-    df["macd_signal"] = macd[f"MACDs_{fast}_{slow}_{signal}"]
-    df["macd_hist"]   = macd[f"MACDh_{fast}_{slow}_{signal}"]
+    macd_obj = ta.trend.MACD(df["close"], window_fast=fast, window_slow=slow, window_sign=signal)
+    df["macd"]        = macd_obj.macd()
+    df["macd_signal"] = macd_obj.macd_signal()
+    df["macd_hist"]   = macd_obj.macd_diff()
     if use_ma_filter:
-        df["ma_trend"]       = ta.sma(df["close"], length=ma_period)
+        df["ma_trend"]       = ta.trend.SMAIndicator(df["close"], window=ma_period).sma_indicator()
         df["price_above_ma"] = df["close"] > df["ma_trend"]
     else:
         df["ma_trend"]       = np.nan
