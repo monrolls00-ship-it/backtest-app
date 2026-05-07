@@ -118,49 +118,32 @@ def write_saves(saves):
 
 # ─── Fetch ───────────────────────────────────────────────────────────────────
 ASSET_LIST = {
-    "BTC/USDT (Binance)": {"type": "crypto", "symbol": "BTC/USDT"},
-    "MSTR (MicroStrategy)": {"type": "stock", "symbol": "MSTR"},
-    "Metaplanet 3350 (JP)": {"type": "stock", "symbol": "3350.T"},
-    "กรอก ticker เอง": {"type": "custom", "symbol": ""},
+    "BTC-USD (Yahoo Finance)": {"type": "stock", "symbol": "BTC-USD"},
+    "ETH-USD (Yahoo Finance)": {"type": "stock", "symbol": "ETH-USD"},
+    "MSTR (MicroStrategy)":    {"type": "stock", "symbol": "MSTR"},
+    "Metaplanet 3350 (JP)":    {"type": "stock", "symbol": "3350.T"},
+    "กรอก ticker เอง":          {"type": "custom", "symbol": ""},
 }
 
 TF_YFINANCE = {"1d": "1d", "1W": "1wk", "3d": "1wk", "4h": "1h", "1h": "1h"}
-# หมายเหตุ: yfinance ไม่มี 3d ใช้ 1wk แทน, 4h/1h ดึงได้แค่ 60-730 วัน
 
 @st.cache_data(show_spinner=False)
 def fetch_ohlcv(asset_type, symbol, timeframe, years=8):
-    if asset_type == "crypto":
-        tf_binance = {"1W": "1w"}.get(timeframe, timeframe)
-        exchange = ccxt.binance()
-        since_ms = int((datetime.now(timezone.utc).timestamp() - years*365*24*3600)*1000)
-        all_ohlcv = []
-        while True:
-            ohlcv = exchange.fetch_ohlcv(symbol, timeframe=tf_binance, since=since_ms, limit=1000)
-            if not ohlcv: break
-            all_ohlcv += ohlcv
-            since_ms = ohlcv[-1][0]+1
-            if len(ohlcv)<1000: break
-            time.sleep(0.2)
-        df = pd.DataFrame(all_ohlcv, columns=["timestamp","open","high","low","close","volume"])
-        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
-        df.set_index("timestamp", inplace=True)
-        return df
-    else:
-        # yfinance สำหรับหุ้น
-        period_map = {1:"1y",2:"2y",3:"5y",4:"5y",5:"5y",6:"10y",7:"10y",8:"10y"}
-        period = period_map.get(years, "max")
-        yf_tf = TF_YFINANCE.get(timeframe, "1d")
-        # 1h/4h ดึงได้แค่ 730 วัน
-        if yf_tf == "1h":
-            period = "730d"
-        ticker = yf.Ticker(symbol)
-        df = ticker.history(period=period, interval=yf_tf, auto_adjust=True)
-        df.index = pd.to_datetime(df.index)
+    # ใช้ yfinance ทั้งหมด — รองรับ crypto (BTC-USD) และหุ้น
+    period_map = {1:"1y",2:"2y",3:"5y",4:"5y",5:"5y",6:"10y",7:"10y",8:"max"}
+    period = period_map.get(years, "max")
+    yf_tf  = TF_YFINANCE.get(timeframe, "1d")
+    if yf_tf == "1h":
+        period = "730d"
+    ticker = yf.Ticker(symbol)
+    df = ticker.history(period=period, interval=yf_tf, auto_adjust=True)
+    df.index = pd.to_datetime(df.index)
+    if df.index.tz is not None:
         df.index = df.index.tz_localize(None)
-        df.columns = [c.lower() for c in df.columns]
-        df = df[["open","high","low","close","volume"]].dropna()
-        df.index.name = "timestamp"
-        return df
+    df.columns = [c.lower() for c in df.columns]
+    df = df[["open","high","low","close","volume"]].dropna()
+    df.index.name = "timestamp"
+    return df
 
 # ─── Signals ─────────────────────────────────────────────────────────────────
 def compute_signals(df, fast=12, slow=26, signal=9, use_ma_filter=False, ma_period=128):
